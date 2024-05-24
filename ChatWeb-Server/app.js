@@ -1,3 +1,4 @@
+const express = require("express");
 const routes = require("./routes/index");
 
 const morgan = require("morgan"); //ghi log
@@ -21,7 +22,6 @@ app.use(cors({
   allowedHeaders:"*",
   credentials: true
 }));
-
 
 app.use(express.json());
 app.use(bodyParser.json());

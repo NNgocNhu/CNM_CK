@@ -10,24 +10,22 @@ process.on("uncaughtException", (err) => {
   process.exit(1);
 });
 const Conversation = require("./models/conversations");
-
 const User = require("./models/user");
 const FriendRequest = require("./models/friendRequest");
-
 const http = require("http");
 const OneToOneMessage = require("./models/oneToOneMessage");
-//gr msg
 const GroupMessage = require("./models/GroupMessage");
 
 const server = http.createServer(app);
-const io = require("socket.io")(httpServer, {
+const io = new Server(server, {
   cors: {
     origin: "https://whispering-clarie-testdeploy-bdce9592.koyeb.app/",
     methods: ["GET", "POST", "OPTIONS"],
-    allowedHeaders:"*",
+    allowedHeaders: "*",
     credentials: true
   }
 });
+
 app.post("/message/messages-create", async (req, res) => {
   try {
     console.log(req.body);
@@ -56,6 +54,7 @@ app.post("/message/messages-create", async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 });
+
 app.get("/message/clearAll/:id", async (req, res) => {
   try {
     const { id } = req.params;
@@ -67,59 +66,60 @@ app.get("/message/clearAll/:id", async (req, res) => {
     return res.status(500).json({ message: error.message });
   }
 });
+
 app.get("/get-groupchat-idUser/:id", async (req, res) => {
   try {
     const data = await Conversation.find({
-      members: { $all: [req.params.id] }, // Sử dụng $all với mảng chứa id
-      type: { $ne: "public" }, // Sử dụng $ne để lọc các nhóm có type khác "public"
+      members: { $all: [req.params.id] },
+      type: { $ne: "public" },
     });
     return res.json(data);
   } catch (error) {
     return res.status(500).json({ message: error.message });
   }
 });
+
 app.post("/create-group/:id", async (req, res) => {
   try {
     const data = await Conversation.create({
       members: [req.params.id],
       type: req.body.type,
     });
+    res.status(201).json(data);
   } catch (error) {
     return res.status(500).json({ message: error.message });
   }
 });
+
 const DB = process.env.DBURI.replace("<PASSWORD>", process.env.DBPASSWORD);
 const multer = require("multer");
 const aws = require("aws-sdk");
 const multerS3 = require("multer-s3");
-// const dotenv = require("dotenv");
 
-// dotenv.config({ path: "./.env" });// Cấu hình AWS
 const s3 = new aws.S3({
-  accessKeyId: "AKIAU6GD3PPUNMDIKWOS",
-  secretAccessKey: "hZ8ZXTaogJp6HzcqzSIN8i2Rgd",
+  accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
   region: "ap-south-1",
 });
 
-// Cấu hình multer để tải file lên S3
 const upload = multer({
   storage: multerS3({
     s3: s3,
     bucket: "chatwebcnm",
-    acl: "public-read", // Đảm bảo rằng file có thể được đọc từ công khai
+    acl: "public-read",
     metadata: function (req, file, cb) {
       cb(null, { fieldName: file.fieldname });
     },
     key: function (req, file, cb) {
-      cb(null, Date.now().toString()); // Khóa của file trên S3 (thay đổi tên file nếu cần)
+      cb(null, Date.now().toString());
     },
   }),
 });
+
 app.post("/upload/image-s3", upload.single("image"), (req, res) => {
   console.log(req.file);
   res.json({ imageUrl: req.file.location });
 });
-// Áp dụng middleware upload vào các yêu cầu PATCH /user/update-me
 
 mongoose
   .connect(DB)
@@ -129,77 +129,46 @@ mongoose
   .catch((err) => {
     console.log(err);
   });
-// const port = process.env.PORT || 8000;
 
-// server.listen(port, () => {
-//   io.on("connect", () => console.log("connecting to io"));
-//   io.on("connection", (socket) => {
-//     console.log(" user connected");
-//     const userAgent = socket.handshake.headers["user-agent"];
-//     console.log("ip: " + socket.request.connection.remoteAddress);
-//     console.log("User Agent:", userAgent);
-//     socket.on("disconnect", () => {
-//       console.log("A user disconnected");
-//     });
-//   });
-//   console.log(`Web đang chạy trên cổng ${port}`);
-// });
-const domain = "https://chatweb-thinline-cnm.vercel.app"; // Thay example.com bằng domain của bạn
 const port = process.env.PORT || 8000;
 
-server.listen(port, domain, () => {
-  io.on("connect", () => console.log("connecting to io"));
-  io.on("connection", (socket) => {
-    console.log(" user connected");
-    const userAgent = socket.handshake.headers["user-agent"];
-    console.log("ip: " + socket.request.connection.remoteAddress);
-    console.log("User Agent:", userAgent);
-    socket.on("disconnect", () => {
-      console.log("A user disconnected");
-    });
-  });
-  console.log(`Web đang chạy trên ${domain}:${port}`);
+server.listen(port, () => {
+  console.log(`Web đang chạy trên cổng ${port}`);
 });
 
-// Import định tuyến cho tin nhắn
 const messageRoute = require("./routes/message");
 const Message = require("./models/message");
 
-// Middleware
-// app.use(express.json());
-
-// Sử dụng định tuyến cho tin nhắn
 app.use("/message", messageRoute);
 
-io.on("connection", async (socket) => {
+io.on("connection", (socket) => {
   console.log(`User connected ${socket.id}`);
   console.log(JSON.stringify(socket.handshake.query));
   const user_id = socket.handshake.query["user_id"];
-
   const title = socket.handshake.query["title"];
   console.log(`User connected ${socket.id}`);
 
   if (user_id != null && Boolean(user_id)) {
     try {
-      await User.findByIdAndUpdate(user_id, {
+      User.findByIdAndUpdate(user_id, {
         socket_id: socket.id,
         status: "Online",
-      });
+      }).exec();
     } catch (error) {
       console.error("Error updating user status:", error);
     }
   }
+
   socket.on("friend_request", async (data) => {
     console.log("Received friend request:", data);
     const to = await User.findById(data.to).select("socket_id");
     const from = await User.findById(data.from).select("socket_id");
 
-    // create a friend request
     await FriendRequest.create({
       sender: data.from,
       recipient: data.to,
     });
-    // emit event request received to recipient
+
     io.to(to?.socket_id).emit("new_friend_request", {
       message: "New friend request received",
     });
@@ -207,13 +176,10 @@ io.on("connection", async (socket) => {
       message: "Request Sent successfully!",
     });
   });
+
   socket.on("accept_request", async (data) => {
-    // accept friend request => add ref of each other in friends array
     console.log(data);
     const request_doc = await FriendRequest.findById(data.request_id);
-
-    console.log(request_doc);
-
     const sender = await User.findById(request_doc.sender);
     const receiver = await User.findById(request_doc.recipient);
 
@@ -225,10 +191,6 @@ io.on("connection", async (socket) => {
 
     await FriendRequest.findByIdAndDelete(data.request_id);
 
-    // delete this request doc
-    // emit event to both of them
-
-    // emit event request accepted to both
     io.to(sender?.socket_id).emit("request_accepted", {
       message: "Friend Request Accepted",
     });
@@ -236,6 +198,7 @@ io.on("connection", async (socket) => {
       message: "Friend Request Accepted",
     });
   });
+
   socket.on("end", async (data) => {
     if (data.user_id) {
       await User.findByIdAndUpdate(data.user_id, { status: "Offline" });
@@ -243,17 +206,12 @@ io.on("connection", async (socket) => {
     console.log("Closing connection");
     socket.disconnect(0);
   });
+
   socket.on("text_message", async (data) => {
     console.log("Received message:", data);
-
-    // data: {to, from, text}
-
     const { message, conversation_id, from, to, type } = data;
-
     const to_user = await User.findById(to);
     const from_user = await User.findById(from);
-
-    // message => {to, from, type, created_at, text, file}
 
     const new_message = {
       to: to,
@@ -263,78 +221,24 @@ io.on("connection", async (socket) => {
       text: message,
     };
 
-    // fetch OneToOneMessage Doc & push a new message to existing conversation
     const chat = await OneToOneMessage.findById(conversation_id);
     chat.messages.push(new_message);
-
-    // save to db`
     await chat.save({ new: true, validateModifiedOnly: true });
-
-    //gr
-    // await grChat.save({new: true, validateModifiedOnly: true});
-    // // emit incoming_message -> to user
 
     io.to(to_user?.socket_id).emit("new_message", {
       conversation_id,
       message: new_message,
     });
 
-    // emit outgoing_message -> from user
     io.to(from_user?.socket_id).emit("new_message", {
       conversation_id,
       message: new_message,
     });
   });
 
-  // //gr
-  // socket.on("text_message_group", async (data) => {
-  //   const { message, groupId, senderId } = data;
-
-  //   try {
-  //     // Tìm nhóm chat và kiểm tra xem người gửi có là thành viên của nhóm không
-  //     const group = await GroupMessage.findById(groupId);
-  //     if (!group || !group.members.includes(senderId)) {
-  //       console.error("Sender is not a member of this group");
-  //       return;
-  //     }
-
-  //     // Lưu tin nhắn vào nhóm chat
-  //     group.messages.push({
-  //       type: "Text",
-  //       created_at: Date.now(),
-  //       text: message,
-  //       sender: senderId,
-  //     });
-
-  //     await group.save();
-
-  //     // Gửi tin nhắn đến tất cả các thành viên trong nhóm
-  //     group.members.forEach((memberId) => {
-  //       io.to(memberId).emit("new_group_message", {
-  //         groupId,
-  //         message: {
-  //           type: "Text",
-  //           created_at: Date.now(),
-  //           text: message,
-  //           sender: senderId,
-  //         },
-  //       });
-  //     });
-  //   } catch (error) {
-  //     console.error("Error sending group message:", error);
-  //   }
-  // });
-  //
-
   socket.on("file_message", (data) => {
     console.log("Received message:", data);
-
-    // data: {to, from, text, file}
-
-    // Get the file extension
     const fileExtension = path.extname(data.file.name);
-
-    // Generate a unique filename
     const filename = `${Date.now()}_${Math.floor(
       Math.random() * 10000
     )}${fileExtension}`;
@@ -345,141 +249,59 @@ io.on("connection", async (socket) => {
       participants: { $all: [user_id] },
     }).populate("participants", "firstName lastName avatar _id email status");
 
-    // db.books.find({ authors: { $elemMatch: { name: "John Smith" } } })
-
     console.log(existing_conversations);
-
     callback(existing_conversations);
   });
 
-  socket.on("DELETE_MSG", (msg) => {
-    socket.to(msg.receiver.socketId).emit("DELETED_MSG", msg);
+  socket.on("get_group_conversations", async ({ user_id }, callback) => {
+    const existing_conversations = await GroupMessage.find({
+      participants: { $all: [user_id] },
+    }).populate("participants", "firstName lastName avatar _id email status");
+
+    console.log(existing_conversations);
+    callback(existing_conversations);
   });
+
+  socket.on("mark_last_seen", async ({ conversation_id, user_id }) => {
+    await OneToOneMessage.findByIdAndUpdate(conversation_id, {
+      last_seen: Date.now(),
+    });
+  });
+
   socket.on("start_conversation", async (data) => {
-    // data: {to: from:}
+    const existing_conversation = await OneToOneMessage.findOne({
+      participants: { $all: [data.from, data.to] },
+    });
 
-    const { to, from } = data;
-
-    // check if there is any existing conversation
-
-    const existing_conversations = await OneToOneMessage.find({
-      participants: { $size: 2, $all: [to, from] },
-    }).populate("participants", "firstName lastName _id email status");
-
-    console.log(existing_conversations[0], "Existing Conversation");
-
-    // if no => create a new OneToOneMessage doc & emit event "start_chat" & send conversation details as payload
-    if (existing_conversations.length === 0) {
-      let new_chat = await OneToOneMessage.create({
-        participants: [to, from],
+    if (existing_conversation) {
+      socket.emit("existing_conversation", existing_conversation);
+    } else {
+      const new_conversation = await OneToOneMessage.create({
+        participants: [data.from, data.to],
       });
 
-      new_chat = await OneToOneMessage.findById(new_chat).populate(
-        "participants",
-        "firstName lastName _id email status"
-      );
-
-      console.log(new_chat);
-
-      socket.emit("start_chat", new_chat);
-    }
-    // if yes => just emit event "start_chat" & send conversation details as payload
-    else {
-      socket.emit("start_chat", existing_conversations[0]);
+      socket.emit("new_conversation", new_conversation);
     }
   });
 
-  //gr
-  // socket.on("start_conversation_group", async (data) => {
-  //   // data: {to: from:}
+  socket.on("start_group", async (data) => {
+    const { participants, title, from } = data;
 
-  //   const { to, from } = data;
+    const new_group = await GroupMessage.create({
+      participants: [...participants, from],
+      title,
+      created_at: Date.now(),
+    });
 
-  //   // check if there is any existing conversation
-
-  //   const existing_conversations = await GroupMessage.find({
-  //     members: { $size: 2, $all: [to, from] },
-  //   }).populate("members", "firstName lastName _id email status");
-
-  //   console.log(existing_conversations[0], "Existing Conversation");
-
-  //   // if no => create a new GroupMessage doc & emit event "start_chat" & send conversation details as payload
-  //   if (existing_conversations.length === 0) {
-  //     let new_chat = await GroupMessage.create({
-  //       members: [to, from],
-  //     });
-
-  //     new_chat = await GroupMessage.findById(new_chat).populate(
-  //       "members",
-  //       "firstName lastName _id email status"
-  //     );
-
-  //     console.log(new_chat);
-
-  //     socket.emit("start_chat_group", new_chat);
-  //   }
-  //   // if yes => just emit event "start_chat" & send conversation details as payload
-  //   else {
-  //     socket.emit("start_chat_group", existing_conversations[0]);
-  //   }
-  // });
-
-  // socket.on("get_messages", async (data, callback) => {
-  //   try {
-  //     const { messages } = await OneToOneMessage.findById(
-  //       data.conversation_id
-  //     ).select("messages");
-  //     callback(messages);
-  //   } catch (error) {
-  //     console.log(error);
-  //   }
-  // });
-
-  // //gr
-  // socket.on("get_messages_group", async (data, callback) => {
-  //   try {
-  //     const { messages } = await GroupMessage.findById(data.groupId).select("messages");
-  //     callback(messages);
-  //   } catch (error) {
-  //     console.error(error);
-  //   }
-  // });
-  // Tạo nhóm chat mới
-  socket.on("create_group", async (data) => {
-    try {
-      const { name, members } = data;
-      const newGroup = await GroupMessage.create({
-        name,
-        members,
-      });
-
-      members.forEach((memberId) => {
-        io.to(memberId).emit("group_created", newGroup);
-      });
-    } catch (error) {
-      console.error("Error creating group:", error);
-    }
+    socket.emit("new_group", new_group);
   });
-  // Tham gia vào nhóm chat đã tồn tại
-  //   socket.on("join_group", async (data) => {
-  //     try {
-  //       const { groupId, userId } = data;
-  //       const group = await GroupMessage.findById(groupId);
 
-  //       if (group && !group.members.includes(userId)) {
-  //         group.members.push(userId);
-  //         await group.save();
-  //         io.to(userId).emit("joined_group", group);
-  //       }
-  //     } catch (error) {
-  //       console.error("Error joining group:", error);
-  //     }
-  //   });
-});
-
-process.on("unhandledRejection", (err) => {
-  console.log(err);
-  server.close(() => {
-    process.exit(1);
+  socket.on("disconnect", async () => {
+    const matching_user = await User.findOne({ socket_id: socket.id });
+    if (matching_user) {
+      matching_user.status = "Offline";
+      await matching_user.save();
+    }
+    console.log("User disconnected");
   });
 });
