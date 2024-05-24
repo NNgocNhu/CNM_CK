@@ -20,11 +20,13 @@ const OneToOneMessage = require("./models/oneToOneMessage");
 const GroupMessage = require("./models/GroupMessage");
 
 const server = http.createServer(app);
-const io = new Server(server, {
+const io = require("socket.io")(httpServer, {
   cors: {
-    origin: "http://localhost:3000",
-    methods: ["GET", "POST"],
-  },
+    origin: "https://whispering-clarie-testdeploy-bdce9592.koyeb.app/",
+    methods: ["GET", "POST", "OPTIONS"],
+    allowedHeaders:"*",
+    credentials: true
+  }
 });
 app.post("/message/messages-create", async (req, res) => {
   try {
@@ -92,9 +94,7 @@ const aws = require("aws-sdk");
 const multerS3 = require("multer-s3");
 // const dotenv = require("dotenv");
 
-// dotenv.config({ path: "./.env" });
-
-// Cấu hình AWS
+// dotenv.config({ path: "./.env" });// Cấu hình AWS
 const s3 = new aws.S3({
   accessKeyId: "AKIAU6GD3PPUNMDIKWOS",
   secretAccessKey: "hZ8ZXTaogJp6HzcqzSIN8i2Rgd",
@@ -129,9 +129,25 @@ mongoose
   .catch((err) => {
     console.log(err);
   });
+// const port = process.env.PORT || 8000;
+
+// server.listen(port, () => {
+//   io.on("connect", () => console.log("connecting to io"));
+//   io.on("connection", (socket) => {
+//     console.log(" user connected");
+//     const userAgent = socket.handshake.headers["user-agent"];
+//     console.log("ip: " + socket.request.connection.remoteAddress);
+//     console.log("User Agent:", userAgent);
+//     socket.on("disconnect", () => {
+//       console.log("A user disconnected");
+//     });
+//   });
+//   console.log(`Web đang chạy trên cổng ${port}`);
+// });
+const domain = "https://chatweb-thinline-cnm.vercel.app"; // Thay example.com bằng domain của bạn
 const port = process.env.PORT || 8000;
 
-server.listen(port, () => {
+server.listen(port, domain, () => {
   io.on("connect", () => console.log("connecting to io"));
   io.on("connection", (socket) => {
     console.log(" user connected");
@@ -142,8 +158,9 @@ server.listen(port, () => {
       console.log("A user disconnected");
     });
   });
-  console.log(`Web đang chạy trên cổng ${port}`);
+  console.log(`Web đang chạy trên ${domain}:${port}`);
 });
+
 // Import định tuyến cho tin nhắn
 const messageRoute = require("./routes/message");
 const Message = require("./models/message");

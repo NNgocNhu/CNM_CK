@@ -1,4 +1,3 @@
-const express = require("express");
 const routes = require("./routes/index");
 
 const morgan = require("morgan"); //ghi log
@@ -16,13 +15,13 @@ const session = require("cookie-session");
 const User = require("./models/user");
 const app = express();
 //
-app.use(
-  cors({
-    origin: "*",
-    methods: ["GET", "PATCH", "POST", "DELETE", "PUT"],
-    credentials: true,
-  })
-);
+app.use(cors({
+  origin: "https://whispering-clarie-testdeploy-bdce9592.koyeb.app/",
+  methods: ["GET", "POST", "OPTIONS"],
+  allowedHeaders:"*",
+  credentials: true
+}));
+
 
 app.use(express.json());
 app.use(bodyParser.json());
