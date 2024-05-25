@@ -41,14 +41,17 @@ const upload = multer({
     checkFileType(file, cb);
   },
 });
-const io = new Server(server, {
-  cors: {
-    origin: "https://whispering-clarie-testdeploy-bdce9592.koyeb.app/",
-    methods: ["GET", "POST", "OPTIONS"],
-    allowedHeaders: "*",
-    credentials: true
-  }
-});
+app.use(
+  cors({
+    origin: "http://localhost:3000",
+  })
+);
+// app.use(cors({
+//   origin: "https://whispering-clarie-testdeploy-bdce9592.koyeb.app/",
+//   methods: ["GET", "POST", "OPTIONS"],
+//   allowedHeaders:"*",
+//   credentials: true
+// }));
 function checkFileType(file, cb) {
   const fileTypes = /jpeg|jpg|png|gif/;
 
